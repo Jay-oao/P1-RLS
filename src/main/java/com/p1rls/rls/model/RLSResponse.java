@@ -1,5 +1,8 @@
 package com.p1rls.rls.model;
 
+import lombok.Builder;
+
+@Builder
 public class RLSResponse {
     private boolean allowed;
 

@@ -12,8 +12,10 @@ public class RLSRequest {
 
     public Algorithm algorithm;
 
+    private long timestamp;
+
     //    NOT IN USE
     //    private int cost = 1;
-    //    private long timestamp;
+
     //    private String requestId;
 }
