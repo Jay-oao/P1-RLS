@@ -17,10 +17,10 @@ public class FixedWindowStrategy implements RateLimiterStrategy {
     public RLSResponse allowRequest(RLSRequest request) {
 
         String key = request.getKey();
-        int limit = request.getLimit();
-        int windowSeconds = request.getWindowSeconds();
-
+        int limit = request.getPolicy().getLimit();
+        int windowSeconds = request.getPolicy().getWindowSeconds();
         long now = request.getTimestamp();
+
         //1000 because 'now' is in ms
         long windowSize = windowSeconds*1000L;
         long windowStart = (now/windowSize)*windowSize;

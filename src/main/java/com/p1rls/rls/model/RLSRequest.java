@@ -1,16 +1,14 @@
 package com.p1rls.rls.model;
 
+import lombok.Builder;
 import lombok.Data;
 
 @Data
+@Builder
 public class RLSRequest {
     private String key;
 
-    private int limit;
-
-    private int windowSeconds;
-
-    public Algorithm algorithm;
+    private StrategyPolicy policy;
 
     private long timestamp;
 
