@@ -3,7 +3,7 @@ package com.p1rls.rls.utils;
 // Delete class after finished
 public class BuildOrder {
 
-    //TODO : CONTROLLER + SERVICE + END-END
+    //TODO : CONTROLLER + SERVICE + END-END                                                 #90%
     //TODO : REDIS IMPLEMENTATION, take care of failure
     //TODO : GLOBAL I/O VALIDATION
     //TODO : LOGGING + ERROR HANDLING
