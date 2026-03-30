@@ -2,6 +2,8 @@ package com.p1rls.rls.strategy;
 
 import com.p1rls.rls.model.RLSRequest;
 import com.p1rls.rls.model.RLSResponse;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
@@ -12,6 +14,9 @@ public class FixedWindowStrategy implements RateLimiterStrategy {
     private final ConcurrentHashMap<String, Integer> counter = new ConcurrentHashMap<>();
 
     private final ConcurrentHashMap<String, ReentrantLock> locks = new ConcurrentHashMap<>();
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
 
     @Override
     public RLSResponse allowRequest(RLSRequest request) {
