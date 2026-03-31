@@ -14,8 +14,11 @@ public class BasicRateLimiterServiceImpl implements RateLimiterService {
 
     private final PolicyService policyService;
 
-    public BasicRateLimiterServiceImpl(PolicyService policyService) {
+    private final StrategyFactory strategyFactory;
+
+    public BasicRateLimiterServiceImpl(PolicyService policyService, StrategyFactory strategyFactory) {
         this.policyService = policyService;
+        this.strategyFactory = strategyFactory;
     }
 
     @Override
@@ -28,7 +31,7 @@ public class BasicRateLimiterServiceImpl implements RateLimiterService {
                 .policy(policy)
                 .timestamp(System.currentTimeMillis()).
                 build();
-        RateLimiterStrategy strategy = StrategyFactory.getStrategy(policy.getAlgorithm());
+        RateLimiterStrategy strategy = strategyFactory.getStrategy(policy.getAlgorithm());
         return strategy.allowRequest(rlsRequest);
     }
 }

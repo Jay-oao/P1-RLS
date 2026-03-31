@@ -4,16 +4,13 @@ import com.p1rls.rls.model.RLSRequest;
 import com.p1rls.rls.model.RLSResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Component;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantLock;
+import java.time.Duration;
 
-// Client level
+// Can crash due to race condition, crash before setting TTL
+@Component
 public class FixedWindowStrategy implements RateLimiterStrategy {
-
-    private final ConcurrentHashMap<String, Integer> counter = new ConcurrentHashMap<>();
-
-    private final ConcurrentHashMap<String, ReentrantLock> locks = new ConcurrentHashMap<>();
 
     @Autowired
     private StringRedisTemplate redisTemplate;
@@ -26,42 +23,46 @@ public class FixedWindowStrategy implements RateLimiterStrategy {
         int windowSeconds = request.getPolicy().getWindowSeconds();
         long now = request.getTimestamp();
 
-        //1000 because 'now' is in ms
-        long windowSize = windowSeconds*1000L;
-        long windowStart = (now/windowSize)*windowSize;
+        long windowSize = windowSeconds * 1000L;
+        long windowStart = (now / windowSize) * windowSize;
         long windowEnd = windowStart + windowSize;
 
-        String compositeKey = key+"-"+windowStart;
+        String redisKey = key + ":" + windowStart;
 
-        ReentrantLock lock = locks.computeIfAbsent(compositeKey, k -> new ReentrantLock());
-        lock.lock();
+        Long count = redisTemplate.opsForValue().increment(redisKey);
 
-        try{
-            int current = counter.getOrDefault(compositeKey, 0);
-
-            if(current + 1 <= limit) {
-                int updated = counter.merge(compositeKey, 1, Integer::sum);
-
-                return RLSResponse.builder()
-                        .allowed(true)
-                        .remaining(limit - updated)
-                        .retryAfterMs(0)
-                        .resetTime(windowEnd)
-                        .message("Allowed")
-                        .build();
-            } else {
-                long retryAfter = windowEnd - now;
-                return RLSResponse.builder()
-                        .allowed(false)
-                        .remaining(0)
-                        .retryAfterMs(retryAfter)
-                        .resetTime(windowEnd)
-                        .message("Blocked")
-                        .build();
-
-            }
-        } finally {
-            lock.unlock();
+        if (count != null && count == 1) {
+            redisTemplate.expire(redisKey, Duration.ofSeconds(windowSeconds));
         }
+
+        if (count == null) {
+            return RLSResponse.builder()
+                    .allowed(true)
+                    .remaining(limit)
+                    .retryAfterMs(0)
+                    .resetTime(windowEnd)
+                    .message("Allowed")
+                    .build();
+        }
+
+        if (count <= limit) {
+            return RLSResponse.builder()
+                    .allowed(true)
+                    .remaining(limit - count.intValue())
+                    .retryAfterMs(0)
+                    .resetTime(windowEnd)
+                    .message("Allowed")
+                    .build();
+        }
+
+        long retryAfter = windowEnd - now;
+
+        return RLSResponse.builder()
+                .allowed(false)
+                .remaining(0)
+                .retryAfterMs(retryAfter)
+                .resetTime(windowEnd)
+                .message("Rate limit exceeded")
+                .build();
     }
 }

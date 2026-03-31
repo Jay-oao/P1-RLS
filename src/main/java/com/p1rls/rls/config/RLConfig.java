@@ -10,7 +10,7 @@ import java.util.List;
 
 @Data
 @Component
-@ConfigurationProperties(prefix = "rateLimiter")
+@ConfigurationProperties(prefix = "rate-limiter")
 public class RLConfig {
     private List<StrategyPolicy> policies;
 }
