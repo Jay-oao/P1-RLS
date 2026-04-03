@@ -4,6 +4,7 @@ import com.p1rls.rls.model.RLSRequest;
 import com.p1rls.rls.model.RLSResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -14,6 +15,9 @@ public class FixedWindowStrategy implements RateLimiterStrategy {
 
     @Autowired
     private StringRedisTemplate redisTemplate;
+
+    @Autowired
+    private DefaultRedisScript<Long> fixedWindowScript;
 
     @Override
     public RLSResponse allowRequest(RLSRequest request) {
@@ -31,11 +35,11 @@ public class FixedWindowStrategy implements RateLimiterStrategy {
 
         try {
 
-            Long count = redisTemplate.opsForValue().increment(redisKey);
-
-            if (count != null && count == 1) {
-                redisTemplate.expire(redisKey, Duration.ofSeconds(windowSeconds));
-            }
+            Long count = redisTemplate.execute(
+                    fixedWindowScript,
+                    java.util.Collections.singletonList(redisKey),
+                    String.valueOf(windowSeconds)
+            );
 
             if (count == null) {
                 return RLSResponse.builder()
