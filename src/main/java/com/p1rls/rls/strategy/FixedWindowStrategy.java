@@ -29,40 +29,55 @@ public class FixedWindowStrategy implements RateLimiterStrategy {
 
         String redisKey = key + ":" + windowStart;
 
-        Long count = redisTemplate.opsForValue().increment(redisKey);
+        try {
 
-        if (count != null && count == 1) {
-            redisTemplate.expire(redisKey, Duration.ofSeconds(windowSeconds));
-        }
+            Long count = redisTemplate.opsForValue().increment(redisKey);
 
-        if (count == null) {
+            if (count != null && count == 1) {
+                redisTemplate.expire(redisKey, Duration.ofSeconds(windowSeconds));
+            }
+
+            if (count == null) {
+                return RLSResponse.builder()
+                        .allowed(true)
+                        .remaining(limit)
+                        .retryAfterMs(0)
+                        .resetTime(windowEnd)
+                        .message("Allowed (fallback)")
+                        .build();
+            }
+
+            if (count <= limit) {
+                return RLSResponse.builder()
+                        .allowed(true)
+                        .remaining(limit - count.intValue())
+                        .retryAfterMs(0)
+                        .resetTime(windowEnd)
+                        .message("Allowed")
+                        .build();
+            }
+
+            long retryAfter = windowEnd - now;
+
+            return RLSResponse.builder()
+                    .allowed(false)
+                    .remaining(0)
+                    .retryAfterMs(retryAfter)
+                    .resetTime(windowEnd)
+                    .message("Rate limit exceeded")
+                    .build();
+
+        } catch (Exception e) {
+
+            System.err.println("Redis failure for key=" + redisKey + " error=" + e.getMessage());
+
             return RLSResponse.builder()
                     .allowed(true)
-                    .remaining(limit)
+                    .remaining(-1)
                     .retryAfterMs(0)
                     .resetTime(windowEnd)
-                    .message("Allowed")
+                    .message("Allowed (Redis failure fallback)")
                     .build();
         }
-
-        if (count <= limit) {
-            return RLSResponse.builder()
-                    .allowed(true)
-                    .remaining(limit - count.intValue())
-                    .retryAfterMs(0)
-                    .resetTime(windowEnd)
-                    .message("Allowed")
-                    .build();
-        }
-
-        long retryAfter = windowEnd - now;
-
-        return RLSResponse.builder()
-                .allowed(false)
-                .remaining(0)
-                .retryAfterMs(retryAfter)
-                .resetTime(windowEnd)
-                .message("Rate limit exceeded")
-                .build();
     }
 }

@@ -25,6 +25,6 @@ public class PolicyService {
                     policy.setAlgorithm(p.getAlgorithm());
                     return policy;
                 })
-                .orElseThrow(() -> new RuntimeException("No policy for api: " + api));
+                .orElseThrow(() -> new IllegalArgumentException("No policy configured for API: " + api));
     }
 }

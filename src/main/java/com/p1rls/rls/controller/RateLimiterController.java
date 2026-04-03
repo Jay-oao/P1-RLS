@@ -3,6 +3,7 @@ package com.p1rls.rls.controller;
 import com.p1rls.rls.model.RLSResponse;
 import com.p1rls.rls.service.RateLimiterService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -16,7 +17,9 @@ public class RateLimiterController {
     }
 
     @PostMapping("/checkRateLimit")
-    public RLSResponse checkRateLimit(HttpServletRequest servletRequest, @RequestParam String clientId, @RequestParam String api) {
+    public RLSResponse checkRateLimit(HttpServletRequest servletRequest,
+                                      @RequestParam @NotBlank String clientId,
+                                      @RequestParam @NotBlank String api) {
         return rateLimiterService.checkRateLimit(servletRequest, clientId, api);
     }
 }
