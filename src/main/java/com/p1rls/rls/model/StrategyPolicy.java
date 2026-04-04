@@ -6,9 +6,9 @@ import lombok.Data;
 public class StrategyPolicy {
     private String api;
 
-    private int limit;
+    private long limit;
 
-    private int windowSeconds;
+    private long windowSeconds;
 
     public Algorithm algorithm;
 }

@@ -10,7 +10,7 @@ import lombok.Data;
 public class RLSResponse {
     private boolean allowed;
 
-    private int remaining;
+    private long remaining;
 
     private long retryAfterMs;
 
