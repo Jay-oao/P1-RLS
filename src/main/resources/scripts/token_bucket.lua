@@ -1,3 +1,20 @@
+-- GET tokens
+-- GET timestamp
+-- CALC refill
+-- SET tokens
+-- SET timestamp
+-- EXPIRE keys
+-- CHECK allow
+-- CALC retry
+-- RETURN
+
+-- KEYS[1] = tokensKey
+-- KEYS[2] = timestampKey
+
+-- ARGV[1] = capacity
+-- ARGV[2] = refillRate
+-- ARGV[3] = currentTimeMs
+
 local tokens_key = KEYS[1]
 local timestamp_key = KEYS[2]
 

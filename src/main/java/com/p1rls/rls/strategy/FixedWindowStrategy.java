@@ -9,6 +9,7 @@ import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
+import java.util.List;
 
 @Component
 public class FixedWindowStrategy implements RateLimiterStrategy {
@@ -17,7 +18,7 @@ public class FixedWindowStrategy implements RateLimiterStrategy {
     private StringRedisTemplate redisTemplate;
 
     @Autowired
-    private DefaultRedisScript<Long> fixedWindowScript;
+    private DefaultRedisScript<List> fixedWindowScript;
 
     @Autowired
     private RedisExecutorUtil redisExecutor;
@@ -30,9 +31,9 @@ public class FixedWindowStrategy implements RateLimiterStrategy {
         long windowSeconds = request.getPolicy().getWindowSeconds();
         long now = request.getTimestamp();
 
-        long windowSize = windowSeconds * 1000L;
-        long windowStart = (now / windowSize) * windowSize;
-        long windowEnd = windowStart + windowSize;
+        long windowSizeMs = windowSeconds * 1000L;
+        long windowStart = (now / windowSizeMs) * windowSizeMs;
+        long windowEnd = windowStart + windowSizeMs;
 
         String redisKey = key + ":" + windowStart;
 
@@ -40,50 +41,51 @@ public class FixedWindowStrategy implements RateLimiterStrategy {
 
                 () -> {
 
-                    Long count = redisTemplate.execute(
+                    List<Long> result = redisTemplate.execute(
                             fixedWindowScript,
                             Collections.singletonList(redisKey),
                             String.valueOf(windowSeconds)
                     );
 
-                    if (count == null) {
-                        return RLSResponse.builder()
-                                .allowed(true)
-                                .remaining(limit)
-                                .retryAfterMs(0)
-                                .resetTime(windowEnd)
-                                .message("Allowed (fallback)")
-                                .build();
+                    if (result == null || result.size() < 2) {
+                        return fallback(limit, windowEnd);
                     }
 
-                    if (count <= limit) {
+                    long current = result.get(0);
+                    long ttlSeconds = result.get(1);
+
+                    long retryAfterMs = ttlSeconds * 1000;
+
+                    if (current <= limit) {
                         return RLSResponse.builder()
                                 .allowed(true)
-                                .remaining(limit - count)
+                                .remaining(limit - current)
                                 .retryAfterMs(0)
                                 .resetTime(windowEnd)
                                 .message("Allowed")
                                 .build();
                     }
 
-                    long retryAfter = windowEnd - now;
-
                     return RLSResponse.builder()
                             .allowed(false)
                             .remaining(0)
-                            .retryAfterMs(retryAfter)
+                            .retryAfterMs(retryAfterMs)
                             .resetTime(windowEnd)
                             .message("Rate limit exceeded")
                             .build();
                 },
 
-                () -> RLSResponse.builder()
-                        .allowed(true)
-                        .remaining(-1)
-                        .retryAfterMs(0)
-                        .resetTime(windowEnd)
-                        .message("Allowed (Redis failure fallback)")
-                        .build()
+                () -> fallback(limit, windowEnd)
         );
+    }
+
+    private RLSResponse fallback(long limit, long windowEnd) {
+        return RLSResponse.builder()
+                .allowed(true)
+                .remaining(limit)
+                .retryAfterMs(0)
+                .resetTime(windowEnd)
+                .message("Allowed (Redis failure fallback)")
+                .build();
     }
 }

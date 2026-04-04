@@ -11,10 +11,10 @@ import java.util.List;
 public class RedisScriptConfig {
 
     @Bean
-    public DefaultRedisScript<Long> fixedWindowScript() {
-        DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+    public DefaultRedisScript<List> fixedWindowScript() {
+        DefaultRedisScript<List> script = new DefaultRedisScript<>();
         script.setLocation(new ClassPathResource("scripts/fixed_window.lua"));
-        script.setResultType(Long.class);
+        script.setResultType(List.class);
         return script;
     }
 
@@ -22,6 +22,14 @@ public class RedisScriptConfig {
     public DefaultRedisScript<List> tokenBucketScript() {
         DefaultRedisScript<List> script = new DefaultRedisScript<>();
         script.setLocation(new ClassPathResource("scripts/token_bucket.lua"));
+        script.setResultType(List.class);
+        return script;
+    }
+
+    @Bean
+    public DefaultRedisScript<List> leakyBucketScript() {
+        DefaultRedisScript<List> script = new DefaultRedisScript<>();
+        script.setLocation(new ClassPathResource("scripts/leaky_bucket.lua"));
         script.setResultType(List.class);
         return script;
     }
