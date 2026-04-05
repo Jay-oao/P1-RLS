@@ -1,9 +1,11 @@
 package com.p1rls.rls.strategy;
 
+import com.p1rls.rls.model.Algorithm;
 import com.p1rls.rls.model.RLSRequest;
 import com.p1rls.rls.model.RLSResponse;
 import com.p1rls.rls.utils.RedisExecutorUtil;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.p1rls.rls.utils.RedisScriptLoader;
+import jakarta.annotation.PostConstruct;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
@@ -12,16 +14,32 @@ import java.util.Collections;
 import java.util.List;
 
 @Component
+@SuppressWarnings("unchecked")
 public class FixedWindowStrategy implements RateLimiterStrategy {
 
-    @Autowired
-    private StringRedisTemplate redisTemplate;
+    private final StringRedisTemplate redisTemplate;
 
-    @Autowired
+    private final RedisScriptLoader scriptLoader;
+
+    private final RedisExecutorUtil redisExecutor;
+
     private DefaultRedisScript<List> fixedWindowScript;
 
-    @Autowired
-    private RedisExecutorUtil redisExecutor;
+    public FixedWindowStrategy(StringRedisTemplate redisTemplate, RedisScriptLoader scriptLoader, RedisExecutorUtil redisExecutor) {
+        this.redisTemplate = redisTemplate;
+        this.scriptLoader = scriptLoader;
+        this.redisExecutor = redisExecutor;
+    }
+
+    @PostConstruct
+    public void init() {
+        fixedWindowScript = scriptLoader.load("scripts/fixed_window.lua");
+    }
+
+    @Override
+    public Algorithm getAlgorithm() {
+        return Algorithm.FIXED_WINDOW;
+    }
 
     @Override
     public RLSResponse allowRequest(RLSRequest request) {

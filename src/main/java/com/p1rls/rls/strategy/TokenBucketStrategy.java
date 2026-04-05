@@ -1,9 +1,11 @@
 package com.p1rls.rls.strategy;
 
+import com.p1rls.rls.model.Algorithm;
 import com.p1rls.rls.model.RLSRequest;
 import com.p1rls.rls.model.RLSResponse;
 import com.p1rls.rls.utils.RedisExecutorUtil;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.p1rls.rls.utils.RedisScriptLoader;
+import jakarta.annotation.PostConstruct;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
@@ -11,17 +13,35 @@ import org.springframework.stereotype.Component;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.p1rls.rls.utils.RedisFailureMethod.fallbackMethod;
+
 @Component
+@SuppressWarnings("unchecked")
 public class TokenBucketStrategy implements RateLimiterStrategy {
 
-    @Autowired
-    private StringRedisTemplate redisTemplate;
+    private final StringRedisTemplate redisTemplate;
 
-    @Autowired
-    private RedisExecutorUtil redisExecutorUtil;
+    private final RedisExecutorUtil redisExecutorUtil;
 
-    @Autowired
+    private final RedisScriptLoader scriptLoader;
+
     private DefaultRedisScript<List> tokenBucketScript;
+
+    public TokenBucketStrategy(StringRedisTemplate redisTemplate, RedisExecutorUtil redisExecutorUtil, RedisScriptLoader scriptLoader) {
+        this.redisTemplate = redisTemplate;
+        this.redisExecutorUtil = redisExecutorUtil;
+        this.scriptLoader = scriptLoader;
+    }
+
+    @PostConstruct
+    public void init() {
+        tokenBucketScript = scriptLoader.load("scripts/token_bucket.lua");
+    }
+
+    @Override
+    public Algorithm getAlgorithm() {
+        return Algorithm.TOKEN_BUCKET;
+    }
 
     @Override
     public RLSResponse allowRequest(RLSRequest request) {
@@ -66,13 +86,7 @@ public class TokenBucketStrategy implements RateLimiterStrategy {
                             .build();
                 },
 
-                () -> RLSResponse.builder()
-                        .allowed(true)
-                        .remaining(-1)
-                        .retryAfterMs(0)
-                        .resetTime(now)
-                        .message("Allowed (Redis failure fallback)")
-                        .build()
+                () -> fallbackMethod(now)
         );
     }
 }

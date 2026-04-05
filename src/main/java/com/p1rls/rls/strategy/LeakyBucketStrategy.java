@@ -1,9 +1,11 @@
 package com.p1rls.rls.strategy;
 
+import com.p1rls.rls.model.Algorithm;
 import com.p1rls.rls.model.RLSRequest;
 import com.p1rls.rls.model.RLSResponse;
 import com.p1rls.rls.utils.RedisExecutorUtil;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.p1rls.rls.utils.RedisScriptLoader;
+import jakarta.annotation.PostConstruct;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
@@ -11,23 +13,40 @@ import org.springframework.stereotype.Component;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.p1rls.rls.utils.RedisFailureMethod.fallbackMethod;
+
 @Component
+@SuppressWarnings("unchecked")
 public class LeakyBucketStrategy implements RateLimiterStrategy {
 
-    @Autowired
-    private StringRedisTemplate redisTemplate;
+    private final StringRedisTemplate redisTemplate;
 
-    @Autowired
+    private final RedisScriptLoader scriptLoader;
+
+    private final RedisExecutorUtil redisExecutor;
+
     private DefaultRedisScript<List> leakyBucketScript;
 
-    @Autowired
-    private RedisExecutorUtil redisExecutor;
+    public LeakyBucketStrategy(StringRedisTemplate redisTemplate, RedisScriptLoader scriptLoader, RedisExecutorUtil redisExecutor) {
+        this.redisTemplate = redisTemplate;
+        this.scriptLoader = scriptLoader;
+        this.redisExecutor = redisExecutor;
+    }
+
+    @PostConstruct
+    public void init() {
+        leakyBucketScript = scriptLoader.load("scripts/leaky_bucket.lua");
+    }
+
+    @Override
+    public Algorithm getAlgorithm() {
+        return Algorithm.LEAKY_BUCKET;
+    }
 
     @Override
     public RLSResponse allowRequest(RLSRequest request) {
 
         String key = request.getKey();
-
         long capacity = request.getPolicy().getLimit();
         long drainTimeSeconds = request.getPolicy().getWindowSeconds();
         long now = request.getTimestamp();
@@ -51,7 +70,7 @@ public class LeakyBucketStrategy implements RateLimiterStrategy {
                     );
 
                     if (result == null || result.size() < 4) {
-                        return fallbackResponse(now);
+                        return fallbackMethod(now);
                     }
 
                     boolean allowed = result.get(0) == 1;
@@ -68,17 +87,8 @@ public class LeakyBucketStrategy implements RateLimiterStrategy {
                             .build();
                 },
 
-                () -> fallbackResponse(now)
+                () -> fallbackMethod(now)
         );
     }
 
-    private RLSResponse fallbackResponse(long now) {
-        return RLSResponse.builder()
-                .allowed(true)
-                .remaining(-1)
-                .retryAfterMs(0)
-                .resetTime(now)
-                .message("Allowed (Redis failure fallback)")
-                .build();
-    }
 }
